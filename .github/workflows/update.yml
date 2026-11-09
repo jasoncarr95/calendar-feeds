@@ -17,13 +17,7 @@ on:
         default: false
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   test:
@@ -39,6 +33,14 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    # One publish at a time; pull-request runs (test only) never queue behind or cancel a deploy.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -46,11 +48,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the build reads each data file's last commit date
+          ref: main # the branch tip, not the commit this run was queued for, so reruns and queued runs can push
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Sync WWE from Wikipedia
         id: sync
         continue-on-error: true
+        timeout-minutes: 5 # a hung fetch counts as a failed sync, not a stuck run
         env:
           FORCE_SYNC_FAILURE: ${{ inputs.force_sync_failure }}
         run: bun run sync
@@ -67,7 +71,8 @@ jobs:
           else
             git commit -m "feat(wwe): schedule changed $(date -u +%F)"
           fi
-          git push
+          git pull --rebase --quiet origin main
+          git push origin HEAD:main
       - name: Build site
         run: bun run build ${{ steps.sync.outcome == 'failure' && '--sync-failed' || '' }}
       - uses: actions/configure-pages@v6

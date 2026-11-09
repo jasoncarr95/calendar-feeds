@@ -43,8 +43,11 @@ const byDateThenName = (a: PleEvent, b: PleEvent) => a.date.localeCompare(b.date
 /**
  * Lay the hand-written file over the synced events. An override that matches no synced event is an
  * error, never a second event: the show it was written for has moved or been renamed.
+ *
+ * `since` is the start of the sync's look-back window. A show dated before it has left the list on
+ * purpose, so its override is spent, not stale, and an addition that old ages out the same way.
  */
-export function mergeManual(synced: PleEvent[], manual: ManualFile): PleEvent[] {
+export function mergeManual(synced: PleEvent[], manual: ManualFile, since = ""): PleEvent[] {
   const merged = new Map<string, PleEvent>();
   for (const e of synced) merged.set(key(e), e);
 
@@ -57,8 +60,9 @@ export function mergeManual(synced: PleEvent[], manual: ManualFile): PleEvent[] 
     }
     const k = key({ date: o.date, name: o.name });
     const target = merged.get(k);
-    if (!target) unmatched.push(`${o.date} ${o.name}`);
-    else merged.set(k, { ...target, ...o, id: target.id, source: "manual" });
+    if (!target) {
+      if (o.date >= since) unmatched.push(`${o.date} ${o.name}`);
+    } else merged.set(k, { ...target, ...o, id: target.id, source: "manual" });
   }
   if (unmatched.length) {
     problems.push(
@@ -69,6 +73,7 @@ export function mergeManual(synced: PleEvent[], manual: ManualFile): PleEvent[] 
 
   const clashes: string[] = [];
   for (const a of manual.additions ?? []) {
+    if ((a.endDate ?? a.date) < since) continue;
     const k = key(a);
     if (merged.has(k)) clashes.push(`${a.date} ${a.name}`);
     else merged.set(k, { ...a, source: "manual" });
@@ -106,7 +111,7 @@ export async function syncWwe(opts: SyncOptions = {}): Promise<SyncResult> {
   }
 
   const manual = (await Bun.file(join(dir, "manual.json")).json()) as ManualFile;
-  const events = mergeManual(synced, manual);
+  const events = mergeManual(synced, manual, since);
   validateEvents(events);
 
   const file: EventsFile = { events };

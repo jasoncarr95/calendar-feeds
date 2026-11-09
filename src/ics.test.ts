@@ -105,6 +105,22 @@ describe("ics", () => {
     );
   });
 
+  test("validateEvents names entries that would publish a broken event or alert", () => {
+    const timed = { date: "2026-01-06", startTime: "15:00", timezone: "Europe/Zurich" };
+    const bad = [
+      { id: "n", date: "2026-01-01" } as CalEvent,
+      { id: "f", name: "F", date: "2026-02-30" },
+      { id: "h", name: "H", ...timed, alertMinutesBefore: 15.5 },
+      { id: "g", name: "G", ...timed, alertMinutesBefore: -10 },
+      { id: "o", name: "O", ...timed, durationMinutes: 0 },
+      { id: "m", name: "M", ...timed, endDate: "2026-01-07" },
+      { id: "q", name: "Q", ...timed, timezone: "Europe/Geneva" },
+    ];
+    expect(() => validateEvents(bad)).toThrow(
+      /n: name[\s\S]*f: date "2026-02-30"[\s\S]*h: alertMinutesBefore[\s\S]*g: alertMinutesBefore[\s\S]*o: durationMinutes[\s\S]*m: endDate[\s\S]*q: unknown timezone "Europe\/Geneva"/,
+    );
+  });
+
   test("buildCalendar refuses invalid events", () => {
     expect(() => buildCalendar([{ id: "a", name: "A", date: "2026-01-01", startTime: "15:00" }], META, STAMP)).toThrow(
       /a: /,

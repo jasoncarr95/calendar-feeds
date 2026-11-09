@@ -73,6 +73,20 @@ test("a stale override fails the sync and leaves the last good data alone", asyn
   expect((await Bun.file(`${dataDir}/wwe/checked.json`).json()).checkedAt).toBe("2026-11-09T09:17:00.000Z");
 });
 
+test("an override whose show has aged out of the list is spent, not stale", async () => {
+  await writeManual({
+    overrides: [{ date: "2026-10-10", name: "WWE Money in the Bank", startTime: "20:00", timezone: "America/New_York" }],
+    additions: [{ id: "2026-10-01-house-show", name: "House Show", date: "2026-10-01", source: "manual" }],
+  });
+  const during = await syncWwe({ html: WIKI_FIXTURE, dataDir, now: NOW, dryRun: true });
+  expect(during.events.find((e) => e.id === "2026-10-10-money-in-the-bank")?.startTime).toBe("20:00");
+  expect(during.events.some((e) => e.id === "2026-10-01-house-show")).toBe(true);
+  // 62 days after the show: Wikipedia's row is outside the look-back window, the override has nothing left to do
+  const after = await syncWwe({ html: WIKI_FIXTURE, dataDir, now: new Date("2026-12-11T09:17:00Z"), dryRun: true });
+  expect(after.events.some((e) => e.date === "2026-10-10")).toBe(false);
+  expect(after.events.some((e) => e.id === "2026-10-01-house-show")).toBe(false);
+});
+
 test("an override that would publish a broken event fails before anything is written", async () => {
   await writeManual({ overrides: [{ date: "2026-10-10", name: "WWE Money in the Bank", startTime: "20:00" }], additions: [] });
   await expect(syncWwe({ html: WIKI_FIXTURE, dataDir, now: NOW })).rejects.toThrow(/money-in-the-bank: .*timezone/);

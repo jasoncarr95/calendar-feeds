@@ -32,7 +32,7 @@ The landing page shows two dates per feed. **Events last changed** is when the f
 
 ## Add or edit a chess event
 
-Edit `data/chess/events.json` and push to `main`; the push publishes it. One entry:
+Edit `data/chess/events.json`, run `bun run check`, and push to `main`; the push publishes it (a failing check stops the publish). One entry:
 
 ```json
 {
@@ -55,7 +55,7 @@ Edit `data/chess/events.json` and push to `main`; the push publishes it. One ent
 - An all-day entry leaves out `startTime`, `timezone`, `durationMinutes` and `alertMinutesBefore`; `endDate` (inclusive) makes it span several days.
 - `"tentative": true` marks an entry that may not happen.
 
-A mistake (a start time with no timezone, an alert on an all-day entry, a duplicate id) fails the build and names the entry; nothing wrong is published.
+A mistake the check knows (a start time with no timezone, an alert on an all-day entry, a duplicate id, a date that does not exist) fails the build and names the entry instead of being published.
 
 ## Pin a WWE bell time
 
@@ -70,7 +70,7 @@ Wikipedia lists dates, not start times, so WWE events are all-day unless pinned.
 }
 ```
 
-An override is matched to its event by `date` and `name`, and its other fields are laid over the synced event. If Wikipedia later moves or renames the show, the override matches nothing and **the sync fails on purpose**, naming the entry, rather than publishing a stale second event. Fix or remove the override and the next run recovers.
+An override is matched to its event by `date` and `name`, and its other fields are laid over the synced event. If Wikipedia later moves or renames the show, the override matches nothing and **the sync fails on purpose**, naming the entry, rather than publishing a stale second event. Fix or remove the override and the next run recovers. Shows drop off the feed 60 days after they end; an override for one of those is ignored and can be deleted whenever.
 
 `additions` is for a whole event Wikipedia does not list: give it its own `id`, `name` and `date`. An addition that duplicates a listed event is refused; use an override for that.
 
@@ -87,6 +87,9 @@ bun run check       # tests and type check
 
 ## When a run fails
 
-GitHub emails about a failed run. A failure means the WWE sync could not fetch or parse Wikipedia's page (fewer than 3 events parsed counts as a failure), an override stopped matching, or a data file is invalid. Nothing is written from a failed sync: **the last good calendars stay published**, and the landing page shows "Last check failed" beside the WWE feed until a run succeeds.
+GitHub emails about a failed run. Either way **the last good calendars stay published**:
+
+- A WWE sync failure (Wikipedia could not be fetched or parsed, fewer than 3 events parsed, an override stopped matching) writes nothing. The run still deploys the last good calendars, and the landing page shows "Last check failed" beside the WWE feed until a run succeeds.
+- An invalid data file or a failing test stops the run before it publishes, so the live site stays exactly as it was until the file is fixed.
 
 To test the failure email: Actions → Update calendars → Run workflow, tick "Fail the WWE sync on purpose", run. Then run it once more without the tick to clear the failed state.

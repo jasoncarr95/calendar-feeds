@@ -100,6 +100,22 @@ export function zonedToUtc(date: string, time: string, timeZone: string): Date {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/** YYYY-MM-DD and a day that exists (not 30 February) */
+function isRealDate(d: string): boolean {
+  if (!DATE_RE.test(d)) return false;
+  const t = new Date(`${d}T00:00:00Z`);
+  return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+}
+
+function isTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Throws one Error listing every problem, each prefixed with the event's id. */
 export function validateEvents(events: CalEvent[]): void {
   const problems: string[] = [];
@@ -112,20 +128,29 @@ export function validateEvents(events: CalEvent[]): void {
     else if (seen.has(ev.id)) bad("duplicate id");
     else seen.add(ev.id);
 
-    const dateOk = DATE_RE.test(ev.date ?? "");
-    if (!dateOk) bad(`date "${ev.date}" is not YYYY-MM-DD`);
+    if (typeof ev.name !== "string" || !ev.name.trim()) bad("name is required");
+
+    const dateOk = isRealDate(ev.date ?? "");
+    if (!dateOk) bad(`date "${ev.date}" is not a real YYYY-MM-DD date`);
     if (ev.endDate !== undefined) {
-      if (!DATE_RE.test(ev.endDate)) bad(`endDate "${ev.endDate}" is not YYYY-MM-DD`);
+      if (!isRealDate(ev.endDate)) bad(`endDate "${ev.endDate}" is not a real YYYY-MM-DD date`);
       else if (dateOk && ev.endDate < ev.date) bad(`endDate ${ev.endDate} is before date ${ev.date}`);
     }
 
     if (ev.startTime !== undefined && !ev.timezone) bad("startTime needs a timezone");
     if (ev.timezone !== undefined && ev.startTime === undefined) bad("timezone is set but startTime is missing");
     if (ev.startTime !== undefined && !TIME_RE.test(ev.startTime)) bad(`startTime "${ev.startTime}" is not HH:MM`);
+    if (ev.timezone !== undefined && !isTimeZone(ev.timezone)) bad(`unknown timezone "${ev.timezone}"`);
 
     if (ev.startTime === undefined) {
       if (ev.alertMinutesBefore !== undefined) bad("alertMinutesBefore needs a startTime (all-day events get no alert)");
       if (ev.durationMinutes !== undefined) bad("durationMinutes needs a startTime");
+    } else {
+      if (ev.endDate !== undefined) bad("endDate is for all-day events only");
+      if (ev.alertMinutesBefore !== undefined && !(Number.isInteger(ev.alertMinutesBefore) && ev.alertMinutesBefore >= 0))
+        bad("alertMinutesBefore must be a whole number of minutes, 0 or more");
+      if (ev.durationMinutes !== undefined && !(Number.isInteger(ev.durationMinutes) && ev.durationMinutes > 0))
+        bad("durationMinutes must be a whole number of minutes above 0");
     }
   }
   if (problems.length) throw new Error(`Invalid calendar events:\n${problems.join("\n")}`);

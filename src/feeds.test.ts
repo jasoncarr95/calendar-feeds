@@ -1,15 +1,32 @@
 import { expect, test } from "bun:test";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { FEEDS, loadEvents } from "./feeds";
-import { buildCalendar, validateEvents } from "./ics";
+import { buildCalendar, validateEvents, type CalEvent } from "./ics";
 
 const chess = FEEDS.find((f) => f.slug === "chess-tournaments")!;
 const events = await loadEvents(chess);
 const ics = buildCalendar(events, chess.meta, new Date("2026-11-09T00:00:00Z"));
 
-test("chess carries all 16 starter entries, 14 with an alert", () => {
-  expect(events.length).toBe(16);
-  expect(ics.match(/BEGIN:VALARM/g)?.length).toBe(14);
-  expect(ics.match(/TRIGGER:-PT15M/g)?.length).toBe(14);
+// Only the published World Championship entries are pinned here, so adding another event never fails the check.
+const isWcc = (e: CalEvent) => e.id.startsWith("fide-world-championship-2026-");
+const wcc = events.filter(isWcc);
+
+test("the World Championship carries its 16 entries, 14 with an alert", () => {
+  expect(wcc.length).toBe(16);
+  expect(wcc.filter((e) => e.alertMinutesBefore === 15).length).toBe(14);
+  const wccIcs = buildCalendar(wcc, chess.meta, new Date("2026-11-09T00:00:00Z"));
+  expect(wccIcs.match(/TRIGGER:-PT15M/g)?.length).toBe(14);
+});
+
+test("another chess entry can be added without touching the tests", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "calendar-feeds-chess-"));
+  const extra: CalEvent = { id: "test-alert-2026-11", name: "TEST alert", date: "2026-11-20" };
+  await Bun.write(join(dataDir, "chess", "events.json"), JSON.stringify({ events: [...events, extra] }));
+  const loaded = await loadEvents(chess, dataDir);
+  expect(loaded.length).toBe(events.length + 1);
+  expect(loaded.filter(isWcc).map((e) => e.id)).toEqual(wcc.map((e) => e.id));
 });
 
 test("Game 1 is a 15-minute marker at 15:00 Geneva time", () => {
@@ -19,7 +36,7 @@ test("Game 1 is a 15-minute marker at 15:00 Geneva time", () => {
 });
 
 test("chess ids are frozen", () => {
-  expect(events.map((e) => e.id)).toMatchSnapshot();
+  expect(wcc.map((e) => e.id)).toMatchSnapshot(); // published ids are never renamed or dropped
 });
 
 test("both real data files pass validation", async () => {
