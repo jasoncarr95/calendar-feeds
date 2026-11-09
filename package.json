@@ -1,0 +1,19 @@
+{
+  "name": "calendar-feeds",
+  "private": true,
+  "type": "module",
+  "description": "Calendar subscription feeds: WWE PLEs and major chess tournaments",
+  "scripts": {
+    "sync": "bun run src/wwe/cli.ts",
+    "build": "bun run src/build.ts",
+    "test": "bun test",
+    "check": "bun test && bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "node-html-parser": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^7.0.2"
+  }
+}

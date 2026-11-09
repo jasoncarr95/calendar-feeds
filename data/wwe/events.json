@@ -1,0 +1,78 @@
+{
+  "updatedAt": "2026-09-04T14:07:03.262Z",
+  "events": [
+    {
+      "id": "2026-07-18-saturday-night-s-main-event-night-3",
+      "name": "WWE Saturday Night's Main Event (Night 3)",
+      "date": "2026-07-18",
+      "venue": "Madison Square Garden",
+      "city": "New York City, New York",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-08-01-summerslam",
+      "name": "WWE SummerSlam",
+      "date": "2026-08-01",
+      "venue": "U.S. Bank Stadium",
+      "city": "Minneapolis, Minnesota",
+      "source": "wikipedia",
+      "endDate": "2026-08-02"
+    },
+    {
+      "id": "2026-09-06-sunday-night-s-main-event",
+      "name": "WWE Sunday Night's Main Event",
+      "date": "2026-09-06",
+      "venue": "State Farm Arena",
+      "city": "Atlanta, Georgia",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-09-11-triplemania-34-night-1",
+      "name": "AAA Triplemanía 34 (Night 1)",
+      "date": "2026-09-11",
+      "venue": "MGM Grand Garden Arena",
+      "city": "Paradise, Nevada",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-09-13-triplemania-34-night-2",
+      "name": "AAA Triplemanía 34 (Night 2)",
+      "date": "2026-09-13",
+      "venue": "Arena CDMX",
+      "city": "Mexico City, Mexico",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-10-10-money-in-the-bank",
+      "name": "WWE Money in the Bank",
+      "date": "2026-10-10",
+      "venue": "Smoothie King Center",
+      "city": "New Orleans, Louisiana",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-11-07-crown-jewel",
+      "name": "WWE Crown Jewel",
+      "date": "2026-11-07",
+      "venue": "Riyadh Season Stadium at King Abdullah Financial District",
+      "city": "Riyadh, Saudi Arabia",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-11-28-survivor-series-wargames",
+      "name": "WWE Survivor Series: WarGames",
+      "date": "2026-11-28",
+      "venue": "Daikin Park",
+      "city": "Houston, Texas",
+      "source": "wikipedia"
+    },
+    {
+      "id": "2026-12-12-wrestlepalooza",
+      "name": "WWE Wrestlepalooza",
+      "date": "2026-12-12",
+      "venue": "RAC Arena",
+      "city": "Perth, Western Australia, Australia",
+      "source": "wikipedia"
+    }
+  ]
+}
