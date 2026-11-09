@@ -48,7 +48,7 @@ export async function update(opts: UpdateOptions = {}): Promise<UpdateResult> {
   );
 
   if (!opts.dryRun) {
-    const file: EventsFile = { updatedAt: new Date().toISOString(), events };
+    const file: EventsFile = { events };
     await Bun.write(EVENTS_PATH, JSON.stringify(file, null, 2) + "\n");
   }
 

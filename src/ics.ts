@@ -1,7 +1,40 @@
-import type { PleEvent } from "./wwe/types";
+/** The shared calendar writer: every feed's events go through `buildCalendar`. */
 
-const PRODID = "-//wwe-ple-calendar//EN";
-const UID_DOMAIN = "wwe-ple-calendar";
+export interface CalEvent {
+  /** UID stem, e.g. "2026-10-10-money-in-the-bank". Never changes once published. */
+  id: string;
+  name: string;
+  /** YYYY-MM-DD, local to `timezone` */
+  date: string;
+  /** Inclusive last day, all-day events only */
+  endDate?: string;
+  /** "HH:MM" in `timezone`. Absent = all-day. */
+  startTime?: string;
+  /** IANA timezone the startTime is in, e.g. "America/New_York" */
+  timezone?: string;
+  durationMinutes?: number;
+  alertMinutesBefore?: number;
+  /** STATUS:TENTATIVE */
+  tentative?: boolean;
+  venue?: string;
+  city?: string;
+  url?: string;
+  notes?: string;
+}
+
+export interface CalendarMeta {
+  name: string;
+  description: string;
+  /** X-APPLE-CALENDAR-COLOR */
+  color?: string;
+  categories: string[];
+  defaultDurationMinutes: number;
+  /** Prepended to DESCRIPTION when an event has no startTime */
+  allDayNote?: string;
+}
+
+const PRODID = "-//calendar-feeds//EN";
+export const UID_DOMAIN = "calendar-feeds.jasoncarr95.github.io";
 
 /** Escape per RFC 5545 §3.3.11 */
 export function escapeText(s: string): string {
@@ -64,16 +97,50 @@ export function zonedToUtc(date: string, time: string, timeZone: string): Date {
   return new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), h, m) - offsetMs);
 }
 
-export function eventToVevent(ev: PleEvent, now: Date, defaultDurationHours = 3): string[] {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Throws one Error listing every problem, each prefixed with the event's id. */
+export function validateEvents(events: CalEvent[]): void {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const ev of events) {
+    const label = ev.id ? ev.id : `(no id) "${ev.name}"`;
+    const bad = (msg: string) => problems.push(`${label}: ${msg}`);
+
+    if (!ev.id) bad("empty id");
+    else if (seen.has(ev.id)) bad("duplicate id");
+    else seen.add(ev.id);
+
+    const dateOk = DATE_RE.test(ev.date ?? "");
+    if (!dateOk) bad(`date "${ev.date}" is not YYYY-MM-DD`);
+    if (ev.endDate !== undefined) {
+      if (!DATE_RE.test(ev.endDate)) bad(`endDate "${ev.endDate}" is not YYYY-MM-DD`);
+      else if (dateOk && ev.endDate < ev.date) bad(`endDate ${ev.endDate} is before date ${ev.date}`);
+    }
+
+    if (ev.startTime !== undefined && !ev.timezone) bad("startTime needs a timezone");
+    if (ev.timezone !== undefined && ev.startTime === undefined) bad("timezone is set but startTime is missing");
+    if (ev.startTime !== undefined && !TIME_RE.test(ev.startTime)) bad(`startTime "${ev.startTime}" is not HH:MM`);
+
+    if (ev.startTime === undefined) {
+      if (ev.alertMinutesBefore !== undefined) bad("alertMinutesBefore needs a startTime (all-day events get no alert)");
+      if (ev.durationMinutes !== undefined) bad("durationMinutes needs a startTime");
+    }
+  }
+  if (problems.length) throw new Error(`Invalid calendar events:\n${problems.join("\n")}`);
+}
+
+function eventToVevent(ev: CalEvent, meta: CalendarMeta, stamp: Date): string[] {
   const lines: string[] = ["BEGIN:VEVENT"];
   lines.push(`UID:${ev.id}@${UID_DOMAIN}`);
-  lines.push(`DTSTAMP:${utcStamp(now)}`);
+  lines.push(`DTSTAMP:${utcStamp(stamp)}`);
 
   if (ev.startTime && ev.timezone) {
     const start = zonedToUtc(ev.date, ev.startTime, ev.timezone);
-    const end = new Date(start.getTime() + defaultDurationHours * 3600_000);
+    const minutes = ev.durationMinutes ?? meta.defaultDurationMinutes;
     lines.push(`DTSTART:${utcStamp(start)}`);
-    lines.push(`DTEND:${utcStamp(end)}`);
+    lines.push(`DTEND:${utcStamp(new Date(start.getTime() + minutes * 60_000))}`);
   } else {
     const endExclusive = addDays(ev.endDate ?? ev.date, 1);
     lines.push(`DTSTART;VALUE=DATE:${ymd(ev.date)}`);
@@ -86,32 +153,51 @@ export function eventToVevent(ev: PleEvent, now: Date, defaultDurationHours = 3)
   if (location) lines.push(`LOCATION:${escapeText(location)}`);
 
   const desc: string[] = [];
-  if (!ev.startTime) desc.push("Start time TBA — WWE PLEs in North America usually begin 7–8 PM ET.");
+  if (!ev.startTime && meta.allDayNote) desc.push(meta.allDayNote);
   if (ev.notes) desc.push(ev.notes);
-  if (ev.url) desc.push(ev.url);
   if (desc.length) lines.push(`DESCRIPTION:${escapeText(desc.join("\n"))}`);
   if (ev.url) lines.push(`URL:${ev.url}`);
 
-  lines.push("CATEGORIES:WWE,Wrestling");
+  if (meta.categories.length) lines.push(`CATEGORIES:${meta.categories.map(escapeText).join(",")}`);
   lines.push("TRANSP:TRANSPARENT");
+  if (ev.tentative) lines.push("STATUS:TENTATIVE");
+
+  if (ev.alertMinutesBefore !== undefined) {
+    const n = ev.alertMinutesBefore;
+    lines.push(
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      `TRIGGER:-PT${n}M`,
+      `DESCRIPTION:${escapeText(`${ev.name} starts in ${n} minutes`)}`,
+      "END:VALARM",
+    );
+  }
+
   lines.push("END:VEVENT");
   return lines;
 }
 
-export function buildCalendar(events: PleEvent[], now = new Date()): string {
-  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+/** `stamp` becomes every DTSTAMP, so the same events and stamp give a byte-identical file. */
+export function buildCalendar(events: CalEvent[], meta: CalendarMeta, stamp: Date): string {
+  validateEvents(events);
+  const sorted = [...events].sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      (a.startTime ?? "").localeCompare(b.startTime ?? "") ||
+      a.name.localeCompare(b.name),
+  );
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     `PRODID:${PRODID}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    "X-WR-CALNAME:WWE Premium Live Events",
-    "X-WR-CALDESC:WWE main-roster PLEs, Saturday/Sunday Night's Main Event, and AAA Triplemanía",
-    "X-PUBLISHED-TTL:PT12H",
-    "REFRESH-INTERVAL;VALUE=DURATION:PT12H",
+    `X-WR-CALNAME:${escapeText(meta.name)}`,
+    `X-WR-CALDESC:${escapeText(meta.description)}`,
   ];
-  for (const ev of sorted) lines.push(...eventToVevent(ev, now));
+  if (meta.color) lines.push(`X-APPLE-CALENDAR-COLOR:${meta.color}`);
+  lines.push("X-PUBLISHED-TTL:PT12H", "REFRESH-INTERVAL;VALUE=DURATION:PT12H");
+  for (const ev of sorted) lines.push(...eventToVevent(ev, meta, stamp));
   lines.push("END:VCALENDAR");
   return lines.map(foldLine).join("\r\n") + "\r\n";
 }
