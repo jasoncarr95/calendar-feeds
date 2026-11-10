@@ -203,7 +203,7 @@
       "id": "test-alert-2026-11",
       "name": "TEST alert (will be removed)",
       "date": "2026-11-10",
-      "startTime": "14:45",
+      "startTime": "15:45",
       "timezone": "America/New_York",
       "durationMinutes": 15,
       "alertMinutesBefore": 15
