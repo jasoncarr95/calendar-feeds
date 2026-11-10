@@ -1,12 +1,5 @@
 {
-  "$comment": "Overrides and additions the Wikipedia sync can't provide. An entry with the same date and event name as a synced one is merged over it field by field (use this to pin a bell time); an entry with a new date+name is added outright. Everything else comes from Wikipedia automatically.",
-  "$example": {
-    "id": "2026-10-10-money-in-the-bank",
-    "name": "WWE Money in the Bank",
-    "date": "2026-10-10",
-    "startTime": "20:00",
-    "timezone": "America/New_York",
-    "source": "manual"
-  },
-  "events": []
+  "$comment": "overrides: fields laid over the synced event with the same date and name (use it to pin a bell time with startTime and timezone); an override that matches no event fails the sync on purpose. additions: whole events Wikipedia does not list, each with its own id, name and date.",
+  "overrides": [],
+  "additions": []
 }

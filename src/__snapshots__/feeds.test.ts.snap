@@ -1,0 +1,22 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`chess ids are frozen 1`] = `
+[
+  "fide-world-championship-2026-opening",
+  "fide-world-championship-2026-game-01",
+  "fide-world-championship-2026-game-02",
+  "fide-world-championship-2026-game-03",
+  "fide-world-championship-2026-game-04",
+  "fide-world-championship-2026-game-05",
+  "fide-world-championship-2026-game-06",
+  "fide-world-championship-2026-game-07",
+  "fide-world-championship-2026-game-08",
+  "fide-world-championship-2026-game-09",
+  "fide-world-championship-2026-game-10",
+  "fide-world-championship-2026-game-11",
+  "fide-world-championship-2026-game-12",
+  "fide-world-championship-2026-game-13",
+  "fide-world-championship-2026-game-14",
+  "fide-world-championship-2026-tiebreak",
+]
+`;

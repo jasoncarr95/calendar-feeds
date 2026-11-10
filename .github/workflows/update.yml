@@ -1,0 +1,88 @@
+name: Update calendars
+
+# Daily: sync the WWE schedule from Wikipedia, commit the data, build the site and deploy it to Pages.
+# A failed sync still deploys the last good calendars, then fails the run so GitHub emails about it.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_sync_failure:
+        description: "Fail the WWE sync on purpose (tests the failure email)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run build
+
+  publish:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    # One publish at a time; pull-request runs (test only) never queue behind or cancel a deploy.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the build reads each data file's last commit date
+          ref: main # the branch tip, not the commit this run was queued for, so reruns and queued runs can push
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Sync WWE from Wikipedia
+        id: sync
+        continue-on-error: true
+        timeout-minutes: 5 # a hung fetch counts as a failed sync, not a stuck run
+        env:
+          FORCE_SYNC_FAILURE: ${{ inputs.force_sync_failure }}
+        run: bun run sync
+      # The daily "checked" commit keeps GitHub from switching the schedule off after 60 quiet days.
+      # Schedule changes stay readable with: git log -- data/wwe/events.json
+      - name: Commit data
+        if: steps.sync.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/wwe
+          if git diff --cached --quiet -- data/wwe/events.json; then
+            git commit -m "chore(wwe): checked $(date -u +%F), no changes"
+          else
+            git commit -m "feat(wwe): schedule changed $(date -u +%F)"
+          fi
+          git pull --rebase --quiet origin main
+          git push origin HEAD:main
+      - name: Build site
+        run: bun run build ${{ steps.sync.outcome == 'failure' && '--sync-failed' || '' }}
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v5
+      - name: Fail the run if the sync failed
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "WWE sync failed; the last good calendars were deployed." >&2
+          exit 1
