@@ -198,6 +198,15 @@
       "city": "Geneva, Switzerland",
       "url": "https://worldchampionship.fide.com/",
       "notes": "Tiebreaks only if the classical match ends 7–7. Start time has not been announced, so this is an all-day placeholder; check the official site for updates. https://worldchampionship.fide.com/"
+    },
+    {
+      "id": "test-alert-2026-11",
+      "name": "TEST alert (will be removed)",
+      "date": "2026-11-10",
+      "startTime": "13:00",
+      "timezone": "America/New_York",
+      "durationMinutes": 15,
+      "alertMinutesBefore": 15
     }
   ]
 }
