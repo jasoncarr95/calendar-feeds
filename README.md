@@ -21,6 +21,8 @@ On a Mac, open the landing page and click **Subscribe** for a feed. In Calendar'
 
 The WWE feed has no alerts.
 
+If an alert shows on the Mac but not on the iPhone, look at the phone before the feed: Settings → Notifications → Calendar needs **Lock Screen**, **Notification Center** and **Banners** ticked. With all three off the phone stays silent even though the event shows its alert. A normal event with an alert, made on the phone, is the quick control test.
+
 ## How it works
 
 - `data/wwe/events.json` is written by the daily sync from Wikipedia's list of WWE supercards. It is rewritten only when the schedule changes, so `git log -- data/wwe/events.json` is the history of schedule changes.
@@ -28,7 +30,7 @@ The WWE feed has no alerts.
 - `data/chess/events.json` is edited by hand.
 - `bun run build` turns both into `dist/`: the two `.ics` files, the landing page and `status.json`. `dist/` is never committed; the workflow deploys it to Pages.
 
-The landing page shows two dates per feed. **Events last changed** is when the feed's data last changed. **Last checked** is when the automation last looked; if that date is old, the daily run has stopped.
+The landing page shows two dates per feed. **Events last changed** is when the feed's data last changed. **Last checked** is when the automation last looked; if that date is old, the daily run has stopped. GitHub can start the scheduled run hours after its 09:17 UTC slot (the first one was 8 hours late), so only a date more than a day or two old means trouble.
 
 ## Add or edit a chess event
 
