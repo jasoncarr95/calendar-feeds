@@ -202,8 +202,8 @@
     {
       "id": "test-alert-2026-11",
       "name": "TEST alert (will be removed)",
-      "date": "2026-11-10",
-      "startTime": "15:45",
+      "date": "2026-11-11",
+      "startTime": "12:30",
       "timezone": "America/New_York",
       "durationMinutes": 15,
       "alertMinutesBefore": 15
